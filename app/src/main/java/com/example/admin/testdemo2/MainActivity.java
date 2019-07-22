@@ -1,10 +1,13 @@
 package com.example.admin.testdemo2;
 
+import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.AppCompatTextView;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,6 +21,7 @@ public class MainActivity extends AppCompatActivity implements OnDragScaleCallBa
     DragScaleTextView dragScaleTextView;
     private RelativeLayout relativeLayout;
 
+    @SuppressLint("RestrictedApi")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,6 +50,7 @@ public class MainActivity extends AppCompatActivity implements OnDragScaleCallBa
         textView.setGravity(Gravity.CENTER);
         textView.setLayoutParams(layoutParams2);
         textView.setBackgroundColor(Color.RED);
+        textView.setTextSize(25);
         DragScaleViewInner dragScaleViewInner2 = new DragScaleViewInner(this);
         RelativeLayout.LayoutParams layoutParamsInner2 = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         layoutParamsInner2.setMargins(20, 0, 0, 0);

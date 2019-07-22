@@ -15,8 +15,11 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+
+import org.w3c.dom.Text;
 
 /**
  * 本来准备直接添加ImageView ，但是选中的边框线绘制的时候会显示在最上层，盖住了小图标，然后准备在dispatchDraw()方法里面重新的去动态添加ImageView
@@ -28,7 +31,7 @@ public class DragScaleViewInner extends RelativeLayout {
     public final static int OPTION_DRAG = 1;//拖动
     public final static int OPTION_DELETE = 2;//删除
     public final static int OPTION_SCALE = 3;//缩放
-    public final static int MIN_INTERVAL = 500 ; //最小间隔时间
+    public final static int MIN_INTERVAL = 500; //最小间隔时间
 
     private Bitmap bitmap_drag;
     private Bitmap bitmap_delete;
@@ -38,12 +41,12 @@ public class DragScaleViewInner extends RelativeLayout {
     private Paint paint_rect, paint_icon;
     private RectF rectF_delete, rectF_scale, rectF_drag;//删除、缩放图标 以及拖动的区域范围
     private long firstClick;//记录第一次单击事件
-    private ScaleGestureDetector mScaleGestureDetector = null;
     private int option;
-    private float oldDistance, newDistance; //缩放比例
+    private float oldDistance, newDistance , textViewOldDistance; //缩放比例
     private float lastX, lastY;
     private float offset, icon_bitmap_width;
-    private int aspectRatio ; //子view的宽高比
+    private int aspectRatio; //子view的宽高比
+    private float originalTextSize = 10; //textView原始的尺寸,在zhangu的时候需要重新设置
 
     public void setSelectStatus(boolean selectStatus) {
         //如果当前view的默认的选中状态和选中的状态是不一样的，此时我们修改选中状态
@@ -151,10 +154,11 @@ public class DragScaleViewInner extends RelativeLayout {
                     lastX = event.getRawX();
                     lastY = event.getRawY();
                     oldDistance = caculateDistance(lastX, lastY);
+                    textViewOldDistance = oldDistance;
                     handleDown(event);
-                    if(option == OPTION_DRAG){
+                    if (option == OPTION_DRAG) {
                         long interval = System.currentTimeMillis() - firstClick;
-                        if(interval < MIN_INTERVAL){//如果两次点击间隔小于最小间隔时间，那就判定双击
+                        if (interval < MIN_INTERVAL) {//如果两次点击间隔小于最小间隔时间，那就判定双击
 
                         }
                         firstClick = System.currentTimeMillis();//重新记录点击时间
@@ -165,6 +169,15 @@ public class DragScaleViewInner extends RelativeLayout {
                 if (onDragScaleCallBackListener != null) {
                     onDragScaleCallBackListener.dragScaleCallBack(getTag() + "");
                 }
+                if(option == OPTION_SCALE){
+                    //抬起的时候 ，如果当前子view是TextView的话，记录一下测试的textView的大小
+                    //防止下一次缩放textView，字体大小混乱
+                    View child = getChildAt(0);
+                    if(child instanceof TextView){
+                        originalTextSize = ((TextView) child).getTextSize();//getTextSize单位是px
+                        originalTextSize = DensityUtil.px2sp(context,originalTextSize);//setTextSize单位是sp
+                    }
+                }
                 break;
             case MotionEvent.ACTION_MOVE://移动
                 if (selectStatus) {
@@ -174,6 +187,9 @@ public class DragScaleViewInner extends RelativeLayout {
                     } else if (option == OPTION_SCALE) {
                         newDistance = caculateDistance(event.getRawX(), event.getRawY());
                         zoomImage();
+                        lastX = event.getRawX();//重新刷新上次移动点X的位置
+                        lastY = event.getRawY();//重新刷新上次移动点Y的位置
+                        oldDistance = caculateDistance(lastX, lastY);
                     }
                     lastX = event.getRawX();//重新刷新上次移动点X的位置
                     lastY = event.getRawY();//重新刷新上次移动点Y的位置
@@ -221,6 +237,11 @@ public class DragScaleViewInner extends RelativeLayout {
 
             //重新设置子view的宽高
             View view = getChildAt(0);
+            if (view instanceof TextView) {
+                TextView textView = (TextView) view;
+                float textSizeRatio = newDistance / textViewOldDistance;
+                textView.setTextSize(originalTextSize * textSizeRatio);
+            }
             float newWidth = view.getWidth() * scaleRatio;
             float newHeight = newWidth / aspectRatio;
             LayoutParams layoutParams = (LayoutParams) view.getLayoutParams();
