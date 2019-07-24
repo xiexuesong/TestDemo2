@@ -7,19 +7,15 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import org.w3c.dom.Text;
 
 /**
  * 本来准备直接添加ImageView ，但是选中的边框线绘制的时候会显示在最上层，盖住了小图标，然后准备在dispatchDraw()方法里面重新的去动态添加ImageView
@@ -42,7 +38,7 @@ public class DragScaleViewInner extends RelativeLayout {
     private RectF rectF_delete, rectF_scale, rectF_drag;//删除、缩放图标 以及拖动的区域范围
     private long firstClick;//记录第一次单击事件
     private int option;
-    private float oldDistance, newDistance , textViewOldDistance; //缩放比例
+    private float oldDistance, newDistance, textViewOldDistance; //缩放比例
     private float lastX, lastY;
     private float offset, icon_bitmap_width;
     private int aspectRatio; //子view的宽高比
@@ -51,10 +47,10 @@ public class DragScaleViewInner extends RelativeLayout {
     public void setSelectStatus(boolean selectStatus) {
         //如果当前view的默认的选中状态和选中的状态是不一样的，此时我们修改选中状态
         //反之，则不修改选中状态，防止多余的刷新操作
-        if (this.selectStatus != selectStatus) {
-            this.selectStatus = selectStatus;
-            invalidate();
-        }
+       if(this.selectStatus != selectStatus){
+           this.selectStatus = selectStatus;
+           invalidate();
+       }
     }
 
     public void setOnDragScaleCallBackListener(OnDragScaleCallBackListener onDragScaleCallBackListener) {
@@ -109,6 +105,7 @@ public class DragScaleViewInner extends RelativeLayout {
         int maxWidth = 0;
         for (int i = 0; i < getChildCount(); i++) {
             View view = getChildAt(i);
+            //       Log.i("MDL", "tag:" + view.getTag() + " height:" + view.getMeasuredHeight() + " width:" + view.getMeasuredWidth());
             maxHeight = view.getMeasuredHeight() > maxHeight ? view.getMeasuredHeight() : maxHeight;
             maxWidth = view.getMeasuredWidth() > maxWidth ? view.getMeasuredWidth() : maxWidth;
         }
@@ -125,7 +122,7 @@ public class DragScaleViewInner extends RelativeLayout {
             String tag = view.getTag() + "";
             switch (tag) {
                 case "main":
-                    view.layout((int) offset, (int) offset, (int) (view.getWidth() + offset), (int) (view.getHeight() + offset));
+                    view.layout((int) (offset), (int) (offset), (int) (view.getWidth() + offset), (int) (view.getHeight() + offset));
                     break;
                 default:
                     break;
@@ -136,6 +133,7 @@ public class DragScaleViewInner extends RelativeLayout {
     @Override
     protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
+        canvas.drawRect(0, 0, getWidth(), getHeight(), paint_rect);//选中线框
         if (selectStatus) {
             canvas.drawRect(offset - 1, offset - 1, getWidth() - offset + 1, getHeight() - offset + 1, paint_rect);//选中线框
             canvas.drawBitmap(bitmap_delete, 0, 0, paint_icon);
@@ -167,15 +165,16 @@ public class DragScaleViewInner extends RelativeLayout {
                 break;
             case MotionEvent.ACTION_UP://抬起
                 if (onDragScaleCallBackListener != null) {
+                    bringToFront();//拿到最前方
                     onDragScaleCallBackListener.dragScaleCallBack(getTag() + "");
                 }
-                if(option == OPTION_SCALE){
+                if (option == OPTION_SCALE) {
                     //抬起的时候 ，如果当前子view是TextView的话，记录一下测试的textView的大小
                     //防止下一次缩放textView，字体大小混乱
                     View child = getChildAt(0);
-                    if(child instanceof TextView){
+                    if (child instanceof TextView) {
                         originalTextSize = ((TextView) child).getTextSize();//getTextSize单位是px
-                        originalTextSize = DensityUtil.px2sp(context,originalTextSize);//setTextSize单位是sp
+                        originalTextSize = DensityUtil.px2sp(context, originalTextSize);//setTextSize单位是sp
                     }
                 }
                 break;
@@ -253,12 +252,6 @@ public class DragScaleViewInner extends RelativeLayout {
 
     private float caculateDistance(float x, float y) {
         return (float) Math.sqrt(x * x + y * y);
-    }
-
-    /**
-     * 处理拖动的事件
-     */
-    private void handleDrag() {
     }
 
     /**
