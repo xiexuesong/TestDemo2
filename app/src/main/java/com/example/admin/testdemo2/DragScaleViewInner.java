@@ -8,11 +8,15 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.TouchDelegate;
 import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -23,7 +27,7 @@ import android.widget.TextView;
  * 因为你无法显式的控制该方法的调用)
  * 然后想到了第二种方法，绘制，在dispatchDraw()方法里面绘制bitmap，然后通过onTouchEvent()方法去做监听事件
  */
-public class DragScaleViewInner extends RelativeLayout {
+public class DragScaleViewInner extends RelativeLayout implements View.OnClickListener {
     public final static int OPTION_DRAG = 1;//拖动
     public final static int OPTION_DELETE = 2;//删除
     public final static int OPTION_SCALE = 3;//缩放
@@ -43,14 +47,15 @@ public class DragScaleViewInner extends RelativeLayout {
     private float offset, icon_bitmap_width;
     private int aspectRatio; //子view的宽高比
     private float originalTextSize = 10; //textView原始的尺寸,在zhangu的时候需要重新设置
+    private ImageView imageView_delete, imageView_scale;
 
     public void setSelectStatus(boolean selectStatus) {
         //如果当前view的默认的选中状态和选中的状态是不一样的，此时我们修改选中状态
         //反之，则不修改选中状态，防止多余的刷新操作
-       if(this.selectStatus != selectStatus){
-           this.selectStatus = selectStatus;
-           invalidate();
-       }
+        if (this.selectStatus != selectStatus) {
+            this.selectStatus = selectStatus;
+            invalidate();
+        }
     }
 
     public void setOnDragScaleCallBackListener(OnDragScaleCallBackListener onDragScaleCallBackListener) {
@@ -60,18 +65,21 @@ public class DragScaleViewInner extends RelativeLayout {
     public DragScaleViewInner(Context context) {
         super(context);
         this.context = context;
+        //this.setClipChildren(false);
         initData();
     }
 
     public DragScaleViewInner(Context context, AttributeSet attrs) {
         super(context, attrs);
         this.context = context;
+     //   this.setClipChildren(false);
         initData();
     }
 
     public DragScaleViewInner(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         this.context = context;
+    //    this.setClipChildren(false);
         initData();
     }
 
@@ -81,7 +89,8 @@ public class DragScaleViewInner extends RelativeLayout {
         paint_rect.setStyle(Paint.Style.STROKE);
         paint_rect.setAntiAlias(true);
         paint_rect.setPathEffect(new DashPathEffect(new float[]{7, 3}, 1));
-        paint_rect.setColor(Color.parseColor("#838587"));
+        paint_rect.setColor(Color.TRANSPARENT);
+        //paint_rect.setColor(Color.parseColor("#838587"));
         paint_icon = new Paint();
         paint_icon.setAntiAlias(true);
         Resources resources = getResources();
@@ -89,6 +98,23 @@ public class DragScaleViewInner extends RelativeLayout {
         bitmap_drag = BitmapFactory.decodeResource(resources, R.mipmap.icon_scale);
         offset = bitmap_delete.getWidth() / 2;
         icon_bitmap_width = bitmap_delete.getWidth();
+    }
+
+    public void initView() {
+        imageView_delete = new ImageView(context);
+        imageView_delete.setTag("delete");
+        LayoutParams layoutParams_delete = new LayoutParams(bitmap_delete.getWidth(), bitmap_delete.getHeight());
+        imageView_delete.setImageBitmap(bitmap_delete);
+        addView(imageView_delete, layoutParams_delete);
+        imageView_scale = new ImageView(context);
+        imageView_scale.setTag("scale");
+        LayoutParams layoutParams_scale = new LayoutParams(bitmap_drag.getWidth(), bitmap_drag.getHeight());
+        imageView_scale.setImageBitmap(bitmap_drag);
+        addView(imageView_scale, layoutParams_scale);
+        imageView_delete.setVisibility(View.GONE);
+        imageView_scale.setVisibility(View.GONE);
+        imageView_delete.setOnClickListener(this);
+        imageView_scale.setOnClickListener(this);
     }
 
     @Override
@@ -105,9 +131,12 @@ public class DragScaleViewInner extends RelativeLayout {
         int maxWidth = 0;
         for (int i = 0; i < getChildCount(); i++) {
             View view = getChildAt(i);
-            //       Log.i("MDL", "tag:" + view.getTag() + " height:" + view.getMeasuredHeight() + " width:" + view.getMeasuredWidth());
-            maxHeight = view.getMeasuredHeight() > maxHeight ? view.getMeasuredHeight() : maxHeight;
-            maxWidth = view.getMeasuredWidth() > maxWidth ? view.getMeasuredWidth() : maxWidth;
+            String tag = view.getTag() + "";
+            if (tag.equals("main")) {
+                //只计算主图片的宽高·
+                maxHeight = view.getMeasuredHeight() > maxHeight ? view.getMeasuredHeight() : maxHeight;
+                maxWidth = view.getMeasuredWidth() > maxWidth ? view.getMeasuredWidth() : maxWidth;
+            }
         }
         aspectRatio = maxWidth / maxHeight;//计算宽高比
         setMeasuredDimension(maxWidth + bitmap_delete.getWidth(), maxHeight + bitmap_delete.getHeight());
@@ -122,7 +151,13 @@ public class DragScaleViewInner extends RelativeLayout {
             String tag = view.getTag() + "";
             switch (tag) {
                 case "main":
-                    view.layout((int) (offset), (int) (offset), (int) (view.getWidth() + offset), (int) (view.getHeight() + offset));
+                    view.layout(0, 0, getWidth(), getHeight());
+                    break;
+                case "delete":
+                    view.layout((int) (-offset), (int) (-offset), (int) (offset), (int) (offset));
+                    break;
+                case "scale":
+                    view.layout((int) (getWidth() - offset), (int) (getHeight() - offset), (int) (getWidth() + offset), (int) (getHeight() + offset));
                     break;
                 default:
                     break;
@@ -133,18 +168,20 @@ public class DragScaleViewInner extends RelativeLayout {
     @Override
     protected void dispatchDraw(Canvas canvas) {
         super.dispatchDraw(canvas);
-        canvas.drawRect(0, 0, getWidth(), getHeight(), paint_rect);//选中线框
-        if (selectStatus) {
-            canvas.drawRect(offset - 1, offset - 1, getWidth() - offset + 1, getHeight() - offset + 1, paint_rect);//选中线框
-            canvas.drawBitmap(bitmap_delete, 0, 0, paint_icon);
-            canvas.drawBitmap(bitmap_drag, getWidth() - icon_bitmap_width, getHeight() - icon_bitmap_width, paint_icon);
-        }
+        //if (selectStatus) {
+        canvas.drawRect(-1, -1, getWidth() + 1, getHeight() + 1, paint_rect);//选中线框
+          /*  canvas.drawBitmap(bitmap_delete, 0, 0, paint_icon);
+            canvas.drawBitmap(bitmap_drag, getWidth() - icon_bitmap_width, getHeight() - icon_bitmap_width, paint_icon);*/
+        //}
+        clickRange();
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        rectF_delete = new RectF(0, 0, icon_bitmap_width, icon_bitmap_width);
-        rectF_scale = new RectF(getWidth() - icon_bitmap_width, getHeight() - icon_bitmap_width, getWidth(), getHeight());
+  //      rectF_delete = new R ectF(0, 0, icon_bitmap_width, icon_bitmap_width);
+  //      rectF_scale = new RectF(getWidth() - icon_bitmap_width, getHeight() - icon_bitmap_width, getWidth(), getHeight());
+        rectF_delete = new RectF(-offset,-offset,offset,offset);
+        rectF_scale = new RectF(getWidth() - offset , getHeight() - offset, getWidth() + offset ,getHeight() + offset);
         rectF_drag = new RectF(offset, offset, getWidth() - offset, getHeight() - offset);
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN://按下
@@ -165,7 +202,11 @@ public class DragScaleViewInner extends RelativeLayout {
                 break;
             case MotionEvent.ACTION_UP://抬起
                 if (onDragScaleCallBackListener != null) {
-                    bringToFront();//拿到最前方
+                    //bringToFront();//拿到最前方
+                    paint_rect.setColor(Color.YELLOW);
+
+                    imageView_delete.setVisibility(View.VISIBLE);
+                    imageView_scale.setVisibility(View.VISIBLE);
                     onDragScaleCallBackListener.dragScaleCallBack(getTag() + "");
                 }
                 if (option == OPTION_SCALE) {
@@ -261,13 +302,65 @@ public class DragScaleViewInner extends RelativeLayout {
         if (rectF_delete.contains(event.getX(), event.getY())) {
             //删除事件
             option = OPTION_DELETE;
+            Log.i("MDL","缩放");
             return;
         }
         if (rectF_scale.contains(event.getX(), event.getY())) {
             //缩放事件
             option = OPTION_SCALE;
+            Log.i("MDL","缩放");
             return;
         }
         option = OPTION_DRAG;
+    }
+
+    @Override
+    public void onClick(View v) {
+        String tag = v.getTag() + "";
+        Log.i("MDL","tag:" + tag);
+        switch (tag) {
+            case "delete":
+                Log.i("MDL", "删除");
+                break;
+            case "scale":
+                Log.i("MDL", "缩放");
+                break;
+        }
+    }
+
+
+    /**
+     * 扩大控件点击区域
+     */
+    private void clickRange() {
+        ((RelativeLayout) getParent()).post(new Runnable() {
+            @Override
+            public void run() {
+                Rect delegateArea = new Rect();
+                getHitRect(delegateArea);
+                delegateArea.left -= 30;
+                delegateArea.top -= 30;
+                delegateArea.right += 30;
+                delegateArea.bottom += 30;
+                if (View.class.isInstance(getParent())) {
+                    ((View)getParent()).setTouchDelegate(new TouchDelegate(delegateArea, imageView_delete));
+                }
+            }
+        });
+
+        ((RelativeLayout) getParent()).post(new Runnable() {
+            @Override
+            public void run() {
+                Rect delegateArea = new Rect();
+                getHitRect(delegateArea);
+                delegateArea.left -= 30;
+                delegateArea.top -= 30;
+                delegateArea.right += 30;
+                delegateArea.bottom += 30;
+                if (View.class.isInstance(getParent())) {
+                    ((View)getParent()).setTouchDelegate(new TouchDelegate(delegateArea, imageView_scale));
+                }
+            }
+        });
     }
 }
